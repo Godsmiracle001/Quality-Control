@@ -1,0 +1,35 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Cache
+.cache/
+.next/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+
+# Misc
+coverage/
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Excel/backup files
+*.bak
+*.tmp 
