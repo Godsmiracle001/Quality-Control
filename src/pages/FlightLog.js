@@ -126,7 +126,11 @@ const FlightLog = () => {
               <option key={sheetName} value={sheetName}>{sheetName}</option>
             ))}
           </select>
-          <button className="btn-primary ml-4" onClick={() => { setShowModal(true); setEditInfo(null); }} disabled={selectedSheet === ALL_MODELS}>
+          <button className="btn-primary ml-4" onClick={() => {
+            setForm(Object.fromEntries(columns.map(col => [col.key, ''])));
+            setShowModal(true);
+            setEditInfo(null);
+          }} disabled={selectedSheet === ALL_MODELS}>
             + Add New Flight
           </button>
           <button className="btn-secondary ml-2" onClick={handleExport} title="Export all data to Excel">
@@ -146,7 +150,7 @@ const FlightLog = () => {
           className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto hidden md:block">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -190,6 +194,41 @@ const FlightLog = () => {
             ))}
           </tbody>
         </table>
+      </div>
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-4">
+        {filteredFlights.map((flight, idx) => (
+          <div key={idx} className="bg-white rounded-lg shadow p-4 flex flex-col gap-2">
+            {columns.filter(col => selectedSheet === ALL_MODELS ? true : !col.allOnly).map(col => (
+              <div key={col.key} className="flex justify-between text-sm">
+                <span className="font-semibold text-gray-700">{col.label}:</span>
+                <span className="text-gray-900 ml-2">
+                  {(col.key === 'TAKE-OFF TIME' || col.key === 'LANDING TIME') && flight[col.key] ? (
+                    (() => {
+                      const t = flight[col.key];
+                      if (typeof t === 'string' && t.length > 0) {
+                        const [h, m, s] = t.split(':');
+                        if (h && m) {
+                          return s !== undefined ? `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}` : `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+                        }
+                        return t;
+                      }
+                      return t ?? '';
+                    })()
+                  ) : flight[col.key]}
+                </span>
+              </div>
+            ))}
+            <div className="flex gap-4 mt-2">
+              <button className="text-primary-600 hover:text-primary-900 flex items-center gap-1" onClick={() => openEdit(flight)} title="Edit">
+                <Edit className="h-4 w-4" /> Edit
+              </button>
+              <button className="text-danger-600 hover:text-danger-900 flex items-center gap-1" onClick={() => openDelete(flight)} title="Delete">
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
       {/* Modal for Add/Edit Flight */}
       {showModal && (
