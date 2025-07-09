@@ -27,68 +27,7 @@ const Inspections = () => {
     notes: ''
   });
   const [formError, setFormError] = useState('');
-  const [inspectionList, setInspectionList] = useState([
-    {
-      id: 'DR-001',
-      model: 'Briech-X1',
-      status: 'pass',
-      inspector: 'John Smith',
-      date: '2024-01-15',
-      priority: 'high',
-      category: 'Final Assembly',
-      notes: 'All systems operational, ready for delivery'
-    },
-    {
-      id: 'DR-002',
-      model: 'Briech-X2',
-      status: 'fail',
-      inspector: 'Sarah Johnson',
-      date: '2024-01-15',
-      priority: 'urgent',
-      category: 'Electronics',
-      notes: 'GPS module malfunction detected'
-    },
-    {
-      id: 'DR-003',
-      model: 'Briech-X1',
-      status: 'pending',
-      inspector: 'Mike Wilson',
-      date: '2024-01-14',
-      priority: 'medium',
-      category: 'Propulsion',
-      notes: 'Awaiting motor calibration test'
-    },
-    {
-      id: 'DR-004',
-      model: 'Briech-X3',
-      status: 'pass',
-      inspector: 'Lisa Brown',
-      date: '2024-01-14',
-      priority: 'low',
-      category: 'Software',
-      notes: 'Flight control system verified'
-    },
-    {
-      id: 'DR-005',
-      model: 'Briech-X2',
-      status: 'pass',
-      inspector: 'David Lee',
-      date: '2024-01-13',
-      priority: 'high',
-      category: 'Structural',
-      notes: 'Frame integrity confirmed'
-    },
-    {
-      id: 'DR-006',
-      model: 'Briech-X1',
-      status: 'fail',
-      inspector: 'Emma Davis',
-      date: '2024-01-13',
-      priority: 'urgent',
-      category: 'Safety Systems',
-      notes: 'Emergency landing system needs recalibration'
-    }
-  ]);
+  const [inspectionList, setInspectionList] = useState([]);
   const [editIndex, setEditIndex] = useState(null);
   const [viewInspection, setViewInspection] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
