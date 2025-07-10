@@ -8,7 +8,8 @@ router.get('/', async (req, res) => {
     const result = await pool.query('SELECT * FROM flight_logs');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching all flight logs:', err); // Enhanced error logging
+    res.status(500).json({ error: err.message || 'Unknown error' });
   }
 });
 
