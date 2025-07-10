@@ -24,11 +24,13 @@ import {
   Minus
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, ScatterChart, Scatter, ComposedChart } from 'recharts';
-import { useFlightData } from '../context/FlightDataContext';
+import api from '../components/api';
 
 const Dashboard = () => {
-  const { currentSheet, selectedSheet, sheets, setSelectedSheet } = useFlightData();
-  const flights = currentSheet.data || [];
+  // Remove useFlightData, use local state for API integration
+  const [flights, setFlights] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   // State for filters and UI
   const [dateRange, setDateRange] = useState('all'); // 'all', '30d', '90d', '6m', '1y'
@@ -37,6 +39,54 @@ const Dashboard = () => {
   const [flightSearch, setFlightSearch] = useState('');
   const flightInputRef = useRef();
   const [showFlightModal, setShowFlightModal] = useState(false);
+
+  // Add state for drone model filter
+  const [selectedModel, setSelectedModel] = useState('ALL');
+  const allKnownModels = [
+    'Arsenio 001', 'Arsenio 002', 'Arsenio 003', 'Arsenio 004', 'Arsenio 005',
+    'Argini 001', 'Argini 002', 'Argini 003', 'Argini 004', 'Argini 005',
+    'Xander 001', 'Xander 002', 'Xander 003', 'Xander 004', 'Xander 005',
+    'Damisa 001', 'Damisa 002', 'Damisa 003', 'Damisa 004', 'Damisa 005'
+  ];
+  const droneModels = Array.from(new Set([...allKnownModels, ...flights.map(f => f['DRONE MODEL']).filter(Boolean)]));
+
+  // Filter flights by selected drone model
+  const filteredByModel = selectedModel === 'ALL' ? flights : flights.filter(f => f['DRONE MODEL'] === selectedModel);
+
+  // Fetch flight logs from backend
+  const fetchFlights = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/flight-logs');
+      setFlights(res.data.map(f => ({
+        ...f,
+        'DRONE MODEL': f.drone_model,
+        'MISSION DATE': f.mission_date,
+        'MISSION OBJECTIVE': f.mission_objective,
+        'FLIGHT ID': f.flight_id,
+        'TAKE-OFF TIME': f.takeoff_time,
+        'LANDING TIME': f.landing_time,
+        'TOTAL FLIGHT TIME': f.total_flight_time,
+        'BATTERY 1 (S) TAKE-OFF VOLTAGE': f.battery1_takeoff_voltage,
+        'BATTERY 1 (S) LANDING VOLTAGE': f.battery1_landing_voltage,
+        'BATTERY 1 (S) VOLTAGE USED': f.battery1_voltage_used,
+        'BATTERY 2 (S) TAKE-OFF VOLTAGE': f.battery2_takeoff_voltage,
+        'BATTERY 2 (S) LANDING VOLTAGE': f.battery2_landing_voltage,
+        'BATTERY 2 (S) VOLTAGE USED': f.battery2_voltage_used,
+        'COMMENT': f.comment,
+        id: f.id
+      })));
+      setError('');
+    } catch (err) {
+      setError('Failed to load flight logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchFlights();
+  }, []);
 
   // Helper function to parse and format dates
   const parseAndFormatDate = (dateStr) => {
@@ -109,16 +159,16 @@ const Dashboard = () => {
 
   // Enhanced data processing
   const processFlightData = () => {
-    const filteredFlights = filterFlightsByDate(flights);
+    const filteredFlights = filterFlightsByDate(filteredByModel);
     
     return filteredFlights.map(f => {
       const flightTime = parseFlightTime(f['TOTAL FLIGHT TIME']);
-      const battery1TakeOff = parseFloat(f['BATTERY 1 (3S) TAKE-OFF VOLTAGE']) || 0;
-      const battery1Landing = parseFloat(f['BATTERY 1 (3S) LANDING VOLTAGE']) || 0;
-      const battery1Used = parseFloat(f['BATTERY 1 (3S) VOLTAGE USED']) || 0;
-      const battery2TakeOff = parseFloat(f['BATTERY 2 (2S) TAKE-OFF VOLTAGE']) || 0;
-      const battery2Landing = parseFloat(f['BATTERY 2 (2S) LANDING VOLTAGE']) || 0;
-      const battery2Used = parseFloat(f['BATTERY 2 (2S) VOLTAGE USED']) || 0;
+      const battery1TakeOff = parseFloat(f['BATTERY 1 (S) TAKE-OFF VOLTAGE']) || 0;
+      const battery1Landing = parseFloat(f['BATTERY 1 (S) LANDING VOLTAGE']) || 0;
+      const battery1Used = parseFloat(f['BATTERY 1 (S) VOLTAGE USED']) || 0;
+      const battery2TakeOff = parseFloat(f['BATTERY 2 (S) TAKE-OFF VOLTAGE']) || 0;
+      const battery2Landing = parseFloat(f['BATTERY 2 (S) LANDING VOLTAGE']) || 0;
+      const battery2Used = parseFloat(f['BATTERY 2 (S) VOLTAGE USED']) || 0;
       
       const dateInfo = parseAndFormatDate(f['MISSION DATE']);
       
@@ -140,10 +190,10 @@ const Dashboard = () => {
     });
   };
 
-  const processedFlights = useMemo(() => processFlightData(), [flights, dateRange]);
+  const processedFlights = useMemo(() => processFlightData(), [filteredByModel, dateRange]);
 
   // Prepare all flights for selector
-  const allFlights = flights;
+  const allFlights = filteredByModel;
   const flightOptions = allFlights.map(f => ({
     id: f['FLIGHT ID'],
     label: `${f['FLIGHT ID']} | ${f['MISSION DATE']} | ${f['MISSION OBJECTIVE']}`,
@@ -163,7 +213,7 @@ const Dashboard = () => {
       }
     ];
     return processFlightData();
-  }, [selectedFlight, selectedFlightId, flights, dateRange]);
+  }, [selectedFlight, selectedFlightId, filteredByModel, dateRange]);
 
   // Performance Score Calculation
   const calculatePerformanceScore = () => {
@@ -263,10 +313,10 @@ const Dashboard = () => {
 
   // Battery Voltage Correlation
   const batteryVoltageCorrelation = filteredProcessedFlights
-    .filter(f => parseFloat(f['BATTERY 1 (3S) TAKE-OFF VOLTAGE']) > 0 && parseFloat(f['BATTERY 1 (3S) LANDING VOLTAGE']) > 0)
+    .filter(f => parseFloat(f['BATTERY 1 (S) TAKE-OFF VOLTAGE']) > 0 && parseFloat(f['BATTERY 1 (S) LANDING VOLTAGE']) > 0)
     .map(f => ({
-      takeOff: parseFloat(f['BATTERY 1 (3S) TAKE-OFF VOLTAGE']),
-      landing: parseFloat(f['BATTERY 1 (3S) LANDING VOLTAGE']),
+      takeOff: parseFloat(f['BATTERY 1 (S) TAKE-OFF VOLTAGE']),
+      landing: parseFloat(f['BATTERY 1 (S) LANDING VOLTAGE']),
       flightId: f['FLIGHT ID']
     }));
 
@@ -335,10 +385,10 @@ const Dashboard = () => {
     .map(f => ({
       missionDate: f.formattedDate,
       fullDate: f.fullDate,
-      battery1TakeOff: parseFloat(f['BATTERY 1 (3S) TAKE-OFF VOLTAGE']) || 0,
-      battery1Landing: parseFloat(f['BATTERY 1 (3S) LANDING VOLTAGE']) || 0,
-      battery2TakeOff: parseFloat(f['BATTERY 2 (2S) TAKE-OFF VOLTAGE']) || 0,
-      battery2Landing: parseFloat(f['BATTERY 2 (2S) LANDING VOLTAGE']) || 0,
+      battery1TakeOff: parseFloat(f['BATTERY 1 (S) TAKE-OFF VOLTAGE']) || 0,
+      battery1Landing: parseFloat(f['BATTERY 1 (S) LANDING VOLTAGE']) || 0,
+      battery2TakeOff: parseFloat(f['BATTERY 2 (S) TAKE-OFF VOLTAGE']) || 0,
+      battery2Landing: parseFloat(f['BATTERY 2 (S) LANDING VOLTAGE']) || 0,
       battery1Efficiency: f.battery1Efficiency,
       battery2Efficiency: f.battery2Efficiency,
       flightTime: f.flightTimeMinutes
@@ -397,7 +447,7 @@ const Dashboard = () => {
         label: dateRangeInfo.label,
         count: dateRangeInfo.count
       },
-      droneModel: selectedSheet,
+      droneModel: selectedModel,
       exportDate: new Date().toLocaleDateString('en-US', { 
         weekday: 'long',
         year: 'numeric', 
@@ -419,7 +469,7 @@ const Dashboard = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `briech-uas-dashboard-${selectedSheet}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `briech-uas-dashboard-${selectedModel}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -513,6 +563,126 @@ const Dashboard = () => {
 
   const dateRangeInfo = getDateRangeInfo();
 
+  // Model-specific battery configuration
+  const modelBatteryConfig = {
+    // Argini and Damisa: B1=3S, B2=12S
+    'Argini 001': { b1: '3S', b2: '12S' },
+    'Argini 002': { b1: '3S', b2: '12S' },
+    'Argini 003': { b1: '3S', b2: '12S' },
+    'Argini 004': { b1: '3S', b2: '12S' },
+    'Argini 005': { b1: '3S', b2: '12S' },
+    'Damisa 001': { b1: '3S', b2: '12S' },
+    'Damisa 002': { b1: '3S', b2: '12S' },
+    'Damisa 003': { b1: '3S', b2: '12S' },
+    'Damisa 004': { b1: '3S', b2: '12S' },
+    'Damisa 005': { b1: '3S', b2: '12S' },
+    // Arsenio: B1=3S, B2=7S
+    'Arsenio 001': { b1: '3S', b2: '7S' },
+    'Arsenio 002': { b1: '3S', b2: '7S' },
+    'Arsenio 003': { b1: '3S', b2: '7S' },
+    'Arsenio 004': { b1: '3S', b2: '7S' },
+    'Arsenio 005': { b1: '3S', b2: '7S' },
+    // Xander: B1=6S, B2=none
+    'Xander 001': { b1: '6S', b2: null },
+    'Xander 002': { b1: '6S', b2: null },
+    'Xander 003': { b1: '6S', b2: null },
+    'Xander 004': { b1: '6S', b2: null },
+    'Xander 005': { b1: '6S', b2: null },
+  };
+
+  // Add 6S to batteryConfigs
+  const batteryConfigs = {
+    '3S': 3,
+    '6S': 6,
+    '7S': 7,
+    '12S': 12
+  };
+
+  // Helper to get battery type for a flight and battery slot
+  function getBatteryTypeForFlight(f, slot) {
+    const model = f['DRONE MODEL'];
+    const config = modelBatteryConfig[model];
+    if (!config) return null;
+    return slot === 1 ? config.b1 : config.b2;
+  }
+
+  // Helper to calculate per-cell voltage
+  function getPerCellVoltage(totalVoltage, type) {
+    const cells = batteryConfigs[type];
+    if (!cells) return null;
+    return parseFloat(totalVoltage) / cells;
+  }
+
+  // Helper to get battery health status
+  function getBatteryHealthStatus(takeoffV, landingV, type) {
+    const perCellTakeoff = getPerCellVoltage(takeoffV, type);
+    const perCellLanding = getPerCellVoltage(landingV, type);
+    let status = 'Unknown';
+    let warning = '';
+    if (perCellLanding !== null) {
+      if (perCellLanding <= 3.4) {
+        status = 'Low Voltage';
+        warning = 'Consider replacing battery';
+      } else if (perCellLanding >= 4.15) {
+        status = 'Fully Charged';
+      } else if (perCellLanding >= 3.65 && perCellLanding < 4.15) {
+        status = 'Nominal';
+      }
+    }
+    return { status, perCellTakeoff, perCellLanding, warning };
+  }
+
+  // Helper to check for imbalance (simulate with takeoff/landing diff for now)
+  function getImbalanceWarning(takeoffV, landingV, type) {
+    // In real world, you'd have per-cell voltages; here we simulate
+    const perCellTakeoff = getPerCellVoltage(takeoffV, type);
+    const perCellLanding = getPerCellVoltage(landingV, type);
+    if (perCellTakeoff !== null && perCellLanding !== null) {
+      const diff = Math.abs(perCellTakeoff - perCellLanding);
+      if (diff > 0.006) {
+        return 'Imbalance detected (isolate battery)';
+      }
+    }
+    return '';
+  }
+
+  // Enhance processedFlights with battery health info using model-specific config
+  const processedFlightsWithBattery = processedFlights.map(f => {
+    // Battery 1
+    const b1Type = getBatteryTypeForFlight(f, 1);
+    const b1 = b1Type ? getBatteryHealthStatus(f['BATTERY 1 (S) TAKE-OFF VOLTAGE'], f['BATTERY 1 (S) LANDING VOLTAGE'], b1Type) : { status: 'N/A' };
+    const b1Imbalance = b1Type ? getImbalanceWarning(f['BATTERY 1 (S) TAKE-OFF VOLTAGE'], f['BATTERY 1 (S) LANDING VOLTAGE'], b1Type) : '';
+    // Battery 2
+    const b2Type = getBatteryTypeForFlight(f, 2);
+    const b2 = b2Type ? getBatteryHealthStatus(f['BATTERY 2 (S) TAKE-OFF VOLTAGE'], f['BATTERY 2 (S) LANDING VOLTAGE'], b2Type) : { status: 'N/A' };
+    const b2Imbalance = b2Type ? getImbalanceWarning(f['BATTERY 2 (S) TAKE-OFF VOLTAGE'], f['BATTERY 2 (S) LANDING VOLTAGE'], b2Type) : '';
+    return {
+      ...f,
+      battery1Type: b1Type,
+      battery1Status: b1.status,
+      battery1PerCellTakeoff: b1.perCellTakeoff,
+      battery1PerCellLanding: b1.perCellLanding,
+      battery1Warning: b1.warning,
+      battery1Imbalance: b1Imbalance,
+      battery2Type: b2Type,
+      battery2Status: b2.status,
+      battery2PerCellTakeoff: b2.perCellTakeoff,
+      battery2PerCellLanding: b2.perCellLanding,
+      battery2Warning: b2.warning,
+      battery2Imbalance: b2Imbalance
+    };
+  });
+
+  // Summary widgets
+  const batteriesToReplace = processedFlightsWithBattery.filter(f => f.battery1Status === 'Low Voltage' || f.battery2Status === 'Low Voltage').length;
+  const batteriesImbalanced = processedFlightsWithBattery.filter(f => f.battery1Imbalance || f.battery2Imbalance).length;
+
+  // Add summary widgets for each model
+  const modelFlightCounts = allKnownModels.map(model => ({
+    model,
+    count: flights.filter(f => f['DRONE MODEL'] === model).length
+  }));
+
   return (
     <div className="p-6">
       {/* Header with Branding and Flight Selector */}
@@ -592,12 +762,13 @@ const Dashboard = () => {
             <label htmlFor="drone-model" className="text-sm font-medium text-gray-700">Model:</label>
             <select
               id="drone-model"
-              value={selectedSheet}
-              onChange={e => setSelectedSheet(e.target.value)}
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             >
-              {Object.keys(sheets).map(sheetName => (
-                <option key={sheetName} value={sheetName}>{sheetName}</option>
+              <option value="ALL">All Models</option>
+              {droneModels.map(model => (
+                <option key={model} value={model}>{model}</option>
               ))}
             </select>
           </div>
@@ -629,6 +800,7 @@ const Dashboard = () => {
               setShowFlightModal(false);
               setFlightSearch('');
               setDateRange('all');
+              setSelectedModel('ALL');
             }}
             title="Reset Dashboard to Default"
           >
@@ -901,6 +1073,31 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Summary Widgets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="card bg-red-50 border-red-200 text-red-800">
+          <div className="flex items-center">
+            <XCircle className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Batteries to Replace</p>
+              <p className="text-2xl font-bold">{batteriesToReplace}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card bg-yellow-50 border-yellow-200 text-yellow-800">
+          <div className="flex items-center">
+            <AlertTriangle className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Batteries Imbalanced</p>
+              <p className="text-2xl font-bold">{batteriesImbalanced}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Model Flight Counts Widgets */}
+      {/* This section is removed as per the edit hint. */}
+
       {/* Footer */}
       <footer className="mt-12 text-center text-xs text-gray-400">
         © 2025 Briech UAS. All rights reserved. | Dashboard generated on {new Date().toLocaleDateString('en-US', { 
@@ -926,8 +1123,10 @@ const Dashboard = () => {
               <div><b>Take-off Time:</b> {selectedFlight['TAKE-OFF TIME']}</div>
               <div><b>Landing Time:</b> {selectedFlight['LANDING TIME']}</div>
               <div><b>Total Flight Time:</b> {selectedFlight['TOTAL FLIGHT TIME']}</div>
-              <div><b>Battery 1 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 1 (3S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 1 (3S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 1 (3S) VOLTAGE USED']}V</div>
-              <div><b>Battery 2 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 2 (2S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 2 (2S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 2 (2S) VOLTAGE USED']}V</div>
+              <div><b>Battery 1 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 1 (S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 1 (S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 1 (S) VOLTAGE USED']}V</div>
+              <div><b>Battery 2 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 2 (S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 2 (S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 2 (S) VOLTAGE USED']}V</div>
+              <div><b>Battery 1:</b> {selectedFlight.battery1Type} | {selectedFlight.battery1Status} | Per-cell: {selectedFlight.battery1PerCellLanding?.toFixed(3)}V {selectedFlight.battery1Warning && <span className="text-red-600">({selectedFlight.battery1Warning})</span>} {selectedFlight.battery1Imbalance && <span className="text-yellow-600">({selectedFlight.battery1Imbalance})</span>}</div>
+              <div><b>Battery 2:</b> {selectedFlight.battery2Type} | {selectedFlight.battery2Status} | Per-cell: {selectedFlight.battery2PerCellLanding?.toFixed(3)}V {selectedFlight.battery2Warning && <span className="text-red-600">({selectedFlight.battery2Warning})</span>} {selectedFlight.battery2Imbalance && <span className="text-yellow-600">({selectedFlight.battery2Imbalance})</span>}</div>
               <div><b>Inspector:</b> {selectedFlight['INSPECTOR'] || 'N/A'}</div>
               <div><b>Comment:</b> {selectedFlight['COMMENT']}</div>
             </div>
@@ -936,8 +1135,8 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold mb-2">Battery Voltage</h3>
               <ResponsiveContainer width="100%" height={120}>
                 <LineChart data={[
-                  { name: 'Take-off', B1: parseFloat(selectedFlight['BATTERY 1 (3S) TAKE-OFF VOLTAGE']) || 0, B2: parseFloat(selectedFlight['BATTERY 2 (2S) TAKE-OFF VOLTAGE']) || 0 },
-                  { name: 'Landing', B1: parseFloat(selectedFlight['BATTERY 1 (3S) LANDING VOLTAGE']) || 0, B2: parseFloat(selectedFlight['BATTERY 2 (2S) LANDING VOLTAGE']) || 0 }
+                  { name: 'Take-off', B1: parseFloat(selectedFlight['BATTERY 1 (S) TAKE-OFF VOLTAGE']) || 0, B2: parseFloat(selectedFlight['BATTERY 2 (S) TAKE-OFF VOLTAGE']) || 0 },
+                  { name: 'Landing', B1: parseFloat(selectedFlight['BATTERY 1 (S) LANDING VOLTAGE']) || 0, B2: parseFloat(selectedFlight['BATTERY 2 (S) LANDING VOLTAGE']) || 0 }
                 ]}>
                   <XAxis dataKey="name" />
                   <YAxis />
