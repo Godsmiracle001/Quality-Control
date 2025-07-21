@@ -8,11 +8,14 @@ import Production from './pages/Production';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import FlightLog from './pages/FlightLog';
+import Login from "./pages/Login";
 import { FlightDataProvider } from './context/FlightDataContext';
 import { Menu } from 'lucide-react';
 
 function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null); // Assuming user state is managed here
+
   return (
     <FlightDataProvider>
       <Router>
@@ -28,6 +31,7 @@ function App() {
               <div className="w-7" /> {/* Spacer for symmetry */}
             </div>
             <Routes>
+              <Route path="/login" element={<Login setUser={setUser} />} />
               <Route path="/" element={<Dashboard />} />
               <Route path="/flight-log" element={<FlightLog />} />
               <Route path="/inspections" element={<Inspections />} />
