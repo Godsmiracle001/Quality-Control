@@ -67,6 +67,10 @@ const Dashboard = () => {
         'TAKE-OFF TIME': f.takeoff_time,
         'LANDING TIME': f.landing_time,
         'TOTAL FLIGHT TIME': f.total_flight_time,
+        'ENGINE TIME (HOURS)': f.engine_time_hours,
+        'FUEL LEVEL BEFORE FLIGHT': f.fuel_level_before_flight,
+        'FUEL LEVEL AFTER FLIGHT': f.fuel_level_after_flight,
+        'FUEL USED': f.fuel_used,
         'BATTERY 1 (S) TAKE-OFF VOLTAGE': f.battery1_takeoff_voltage,
         'BATTERY 1 (S) LANDING VOLTAGE': f.battery1_landing_voltage,
         'BATTERY 1 (S) VOLTAGE USED': f.battery1_voltage_used,
@@ -169,6 +173,8 @@ const Dashboard = () => {
       const battery2TakeOff = parseFloat(f['BATTERY 2 (S) TAKE-OFF VOLTAGE']) || 0;
       const battery2Landing = parseFloat(f['BATTERY 2 (S) LANDING VOLTAGE']) || 0;
       const battery2Used = parseFloat(f['BATTERY 2 (S) VOLTAGE USED']) || 0;
+      const engineTime = parseFloat(f['ENGINE TIME (HOURS)']) || 0;
+      const fuelUsed = parseFloat(f['FUEL USED']) || 0;
       
       const dateInfo = parseAndFormatDate(f['MISSION DATE']);
       
@@ -185,7 +191,9 @@ const Dashboard = () => {
         quarter: dateInfo.quarter,
         formattedDate: dateInfo.formatted,
         fullDate: dateInfo.fullDate,
-        dateObject: dateInfo.date
+        dateObject: dateInfo.date,
+        engineTime: engineTime,
+        fuelUsed: fuelUsed,
       };
     });
   };
@@ -683,8 +691,41 @@ const Dashboard = () => {
     count: flights.filter(f => f['DRONE MODEL'] === model).length
   }));
 
+  const totalEngineHours = filteredProcessedFlights.reduce((sum, f) => sum + f.engineTime, 0);
+  const totalFuelUsed = filteredProcessedFlights.reduce((sum, f) => sum + f.fuelUsed, 0);
+
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
+      
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-gray-50/80 backdrop-blur-sm -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-4 mb-6 border-b border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Quality Control Dashboard</h1>
+          
+          {/* Export & Print Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportDashboard}
+              className="btn-secondary flex items-center gap-2 text-sm"
+              title="Export Dashboard Data"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={printDashboard}
+              className="btn-secondary flex items-center gap-2 text-sm"
+              title="Print Dashboard"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+          </div>
+
+          
+        </div>
+      </div>
+
       {/* Header with Branding and Flight Selector */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
         <div className="flex items-center gap-4">
@@ -773,39 +814,7 @@ const Dashboard = () => {
             </select>
           </div>
 
-          {/* Export & Print Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportDashboard}
-              className="btn-secondary flex items-center gap-2 text-sm"
-              title="Export Dashboard Data"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </button>
-            <button
-              onClick={printDashboard}
-              className="btn-secondary flex items-center gap-2 text-sm"
-              title="Print Dashboard"
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </button>
-          </div>
-
-          <button
-            className="btn-secondary flex items-center gap-2 text-sm"
-            onClick={() => {
-              setSelectedFlightId('');
-              setShowFlightModal(false);
-              setFlightSearch('');
-              setDateRange('all');
-              setSelectedModel('ALL');
-            }}
-            title="Reset Dashboard to Default"
-          >
-            Reset Dashboard
-          </button>
+          
         </div>
       </div>
 
@@ -926,7 +935,48 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
+   {/* New Summary Widgets */}
+   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="card bg-blue-50 border-blue-200 text-blue-800">
+          <div className="flex items-center">
+            <Thermometer className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Total Engine Hours</p>
+              <p className="text-2xl font-bold">{totalEngineHours.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card bg-purple-50 border-purple-200 text-purple-800">
+          <div className="flex items-center">
+            <BarChart3 className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Total Fuel Used</p>
+              <p className="text-2xl font-bold">{totalFuelUsed.toFixed(2)} L</p>
+            </div>
+          </div>
+        </div>
+      </div>
+       {/* Summary Widgets */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="card bg-red-50 border-red-200 text-red-800">
+          <div className="flex items-center">
+            <XCircle className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Batteries to Replace</p>
+              <p className="text-2xl font-bold">{batteriesToReplace}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card bg-yellow-50 border-yellow-200 text-yellow-800">
+          <div className="flex items-center">
+            <AlertTriangle className="h-6 w-6" />
+            <div className="ml-4">
+              <p className="text-sm font-medium">Batteries Imbalanced</p>
+              <p className="text-2xl font-bold">{batteriesImbalanced}</p>
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Enhanced Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Mission Objective Analysis */}
@@ -1073,30 +1123,12 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Summary Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="card bg-red-50 border-red-200 text-red-800">
-          <div className="flex items-center">
-            <XCircle className="h-6 w-6" />
-            <div className="ml-4">
-              <p className="text-sm font-medium">Batteries to Replace</p>
-              <p className="text-2xl font-bold">{batteriesToReplace}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card bg-yellow-50 border-yellow-200 text-yellow-800">
-          <div className="flex items-center">
-            <AlertTriangle className="h-6 w-6" />
-            <div className="ml-4">
-              <p className="text-sm font-medium">Batteries Imbalanced</p>
-              <p className="text-2xl font-bold">{batteriesImbalanced}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Model Flight Counts Widgets */}
       {/* This section is removed as per the edit hint. */}
+
+   
 
       {/* Footer */}
       <footer className="mt-12 text-center text-xs text-gray-400">
@@ -1123,6 +1155,8 @@ const Dashboard = () => {
               <div><b>Take-off Time:</b> {selectedFlight['TAKE-OFF TIME']}</div>
               <div><b>Landing Time:</b> {selectedFlight['LANDING TIME']}</div>
               <div><b>Total Flight Time:</b> {selectedFlight['TOTAL FLIGHT TIME']}</div>
+              <div><b>Engine Time:</b> {selectedFlight['ENGINE TIME (HOURS)']} hrs</div>
+              <div><b>Fuel Used:</b> {selectedFlight['FUEL USED']} L</div>
               <div><b>Battery 1 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 1 (S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 1 (S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 1 (S) VOLTAGE USED']}V</div>
               <div><b>Battery 2 (Take-off/Landing/Used):</b> {selectedFlight['BATTERY 2 (S) TAKE-OFF VOLTAGE']}V / {selectedFlight['BATTERY 2 (S) LANDING VOLTAGE']}V / {selectedFlight['BATTERY 2 (S) VOLTAGE USED']}V</div>
               <div><b>Battery 1:</b> {selectedFlight.battery1Type} | {selectedFlight.battery1Status} | Per-cell: {selectedFlight.battery1PerCellLanding?.toFixed(3)}V {selectedFlight.battery1Warning && <span className="text-red-600">({selectedFlight.battery1Warning})</span>} {selectedFlight.battery1Imbalance && <span className="text-yellow-600">({selectedFlight.battery1Imbalance})</span>}</div>

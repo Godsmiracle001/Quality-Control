@@ -13,9 +13,6 @@ app.use(express.json());
 // PostgreSQL pool setup
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
   // You can add more config here if needed
 });
 
