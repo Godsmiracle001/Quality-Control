@@ -11,10 +11,6 @@ const columns = [
   { key: 'TAKE-OFF TIME', label: 'Take-off Time' },
   { key: 'LANDING TIME', label: 'Landing Time' },
   { key: 'TOTAL FLIGHT TIME', label: 'Total Flight Time' },
-  { key: 'ENGINE TIME (HOURS)', label: 'Engine Time (Hours)' },
-  { key: 'FUEL LEVEL BEFORE FLIGHT', label: 'Fuel Before (L)' },
-  { key: 'FUEL LEVEL AFTER FLIGHT', label: 'Fuel After (L)' },
-  { key: 'FUEL USED', label: 'Fuel Used (L)' },
   { key: 'BATTERY 1 (S) TAKE-OFF VOLTAGE', label: 'Battery 1 Take-off V' },
   { key: 'BATTERY 1 (S) LANDING VOLTAGE', label: 'Battery 1 Landing V' },
   { key: 'BATTERY 1 (S) VOLTAGE USED', label: 'Battery 1 Used V' },
@@ -36,10 +32,6 @@ function mapBackendToFrontend(flight) {
     'TAKE-OFF TIME': flight.takeoff_time,
     'LANDING TIME': flight.landing_time,
     'TOTAL FLIGHT TIME': flight.total_flight_time,
-    'ENGINE TIME (HOURS)': flight.engine_time_hours,
-    'FUEL LEVEL BEFORE FLIGHT': flight.fuel_level_before_flight,
-    'FUEL LEVEL AFTER FLIGHT': flight.fuel_level_after_flight,
-    'FUEL USED': flight.fuel_used,
     'BATTERY 1 (S) TAKE-OFF VOLTAGE': flight.battery1_takeoff_voltage,
     'BATTERY 1 (S) LANDING VOLTAGE': flight.battery1_landing_voltage,
     'BATTERY 1 (S) VOLTAGE USED': flight.battery1_voltage_used,
@@ -91,13 +83,6 @@ function calculateBatteryUsed(takeoff, landing) {
   const l = parseFloat(landing);
   if (isNaN(t) || isNaN(l)) return '';
   return (t - l).toString();
-}
-
-function calculateFuelUsed(before, after) {
-  const b = parseFloat(before);
-  const a = parseFloat(after);
-  if (isNaN(b) || isNaN(a)) return '';
-  return (b - a).toFixed(2).toString();
 }
 
 const FlightLog = () => {
@@ -168,23 +153,20 @@ const FlightLog = () => {
     // Calculate battery used
     const battery1Used = calculateBatteryUsed(form['BATTERY 1 (S) TAKE-OFF VOLTAGE'], form['BATTERY 1 (S) LANDING VOLTAGE']);
     const battery2Used = calculateBatteryUsed(form['BATTERY 2 (S) TAKE-OFF VOLTAGE'], form['BATTERY 2 (S) LANDING VOLTAGE']);
-    // Calculate fuel used
-    const fuelUsed = calculateFuelUsed(form['FUEL LEVEL BEFORE FLIGHT'], form['FUEL LEVEL AFTER FLIGHT']);
     const formWithCalcs = {
       ...form,
       'TOTAL FLIGHT TIME': totalFlightTime,
       'BATTERY 1 (S) VOLTAGE USED': battery1Used,
-      'BATTERY 2 (S) VOLTAGE USED': battery2Used,
-      'FUEL USED': fuelUsed,
+      'BATTERY 2 (S) VOLTAGE USED': battery2Used
     };
     try {
       if (editId) {
         await api.put(`/flight-logs/${editId}`, formWithCalcs);
-    } else {
+      } else {
         await api.post('/flight-logs', formWithCalcs);
-    }
-    setShowModal(false);
-    setForm(Object.fromEntries(columns.map(col => [col.key, ''])));
+      }
+      setShowModal(false);
+      setForm(Object.fromEntries(columns.map(col => [col.key, ''])));
       setEditId(null);
       fetchFlightLogs();
     } catch (err) {
@@ -312,9 +294,9 @@ const FlightLog = () => {
               </tr>
             ) : (
               filteredFlights.map((flight, idx) => (
-              <tr key={idx} className="hover:bg-gray-50">
+                <tr key={idx} className="hover:bg-gray-50">
                   {columns.filter(col => ALL_MODELS === '__ALL_MODELS__' ? true : !col.allOnly).map(col => (
-                  <td key={col.key} className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                    <td key={col.key} className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                       {col.key === 'MISSION DATE'
                         ? formatDate(flight[col.key])
                         : col.key === 'TOTAL FLIGHT TIME'
@@ -329,35 +311,31 @@ const FlightLog = () => {
                               ? (flight[col.key] && flight[col.key] !== ''
                                   ? flight[col.key]
                                   : calculateBatteryUsed(flight['BATTERY 2 (S) TAKE-OFF VOLTAGE'], flight['BATTERY 2 (S) LANDING VOLTAGE']))
-                          : col.key === 'FUEL USED'
-                            ? (flight[col.key] && flight[col.key] !== ''
-                                ? flight[col.key]
-                                : calculateFuelUsed(flight['FUEL LEVEL BEFORE FLIGHT'], flight['FUEL LEVEL AFTER FLIGHT']))
                           : (col.key === 'TAKE-OFF TIME' || col.key === 'LANDING TIME') && flight[col.key]
                             ? (() => {
-                        const t = flight[col.key];
-                        if (typeof t === 'string' && t.length > 0) {
-                          const [h, m, s] = t.split(':');
-                          if (h && m) {
-                            return s !== undefined ? `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}` : `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
-                          }
-                          return t;
-                        }
-                        return t ?? '';
-                      })()
+                                const t = flight[col.key];
+                                if (typeof t === 'string' && t.length > 0) {
+                                  const [h, m, s] = t.split(':');
+                                  if (h && m) {
+                                    return s !== undefined ? `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}` : `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+                                  }
+                                  return t;
+                                }
+                                return t ?? '';
+                              })()
                             : flight[col.key]
                       }
+                    </td>
+                  ))}
+                  <td className="px-4 py-2 whitespace-nowrap text-sm flex gap-2">
+                    <button className="text-primary-600 hover:text-primary-900" onClick={() => openEdit(flight)} title="Edit">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button className="text-danger-600 hover:text-danger-900" onClick={() => openDelete(flight)} title="Delete">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </td>
-                ))}
-                <td className="px-4 py-2 whitespace-nowrap text-sm flex gap-2">
-                  <button className="text-primary-600 hover:text-primary-900" onClick={() => openEdit(flight)} title="Edit">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="text-danger-600 hover:text-danger-900" onClick={() => openDelete(flight)} title="Delete">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
+                </tr>
               ))
             )}
           </tbody>
@@ -379,11 +357,11 @@ const FlightLog = () => {
           </div>
         ) : (
           filteredFlights.map((flight, idx) => (
-          <div key={idx} className="bg-white rounded-lg shadow p-4 flex flex-col gap-2">
+            <div key={idx} className="bg-white rounded-lg shadow p-4 flex flex-col gap-2">
               {columns.filter(col => ALL_MODELS === '__ALL_MODELS__' ? true : !col.allOnly).map(col => (
-              <div key={col.key} className="flex justify-between text-sm">
-                <span className="font-semibold text-gray-700">{col.label}:</span>
-                <span className="text-gray-900 ml-2">
+                <div key={col.key} className="flex justify-between text-sm">
+                  <span className="font-semibold text-gray-700">{col.label}:</span>
+                  <span className="text-gray-900 ml-2">
                     {col.key === 'MISSION DATE'
                       ? formatDate(flight[col.key])
                       : col.key === 'TOTAL FLIGHT TIME'
@@ -398,44 +376,40 @@ const FlightLog = () => {
                           ? (flight[col.key] && flight[col.key] !== ''
                               ? flight[col.key]
                               : calculateBatteryUsed(flight['BATTERY 2 (S) TAKE-OFF VOLTAGE'], flight['BATTERY 2 (S) LANDING VOLTAGE']))
-                        : col.key === 'FUEL USED'
-                          ? (flight[col.key] && flight[col.key] !== ''
-                              ? flight[col.key]
-                              : calculateFuelUsed(flight['FUEL LEVEL BEFORE FLIGHT'], flight['FUEL LEVEL AFTER FLIGHT']))
                         : (col.key === 'TAKE-OFF TIME' || col.key === 'LANDING TIME') && flight[col.key]
                           ? (() => {
-                      const t = flight[col.key];
-                      if (typeof t === 'string' && t.length > 0) {
-                        const [h, m, s] = t.split(':');
-                        if (h && m) {
-                          return s !== undefined ? `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}` : `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
-                        }
-                        return t;
-                      }
-                      return t ?? '';
-                    })()
+                              const t = flight[col.key];
+                              if (typeof t === 'string' && t.length > 0) {
+                                const [h, m, s] = t.split(':');
+                                if (h && m) {
+                                  return s !== undefined ? `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${s.padStart(2, '0')}` : `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+                                }
+                                return t;
+                              }
+                              return t ?? '';
+                            })()
                           : flight[col.key]
                     }
-                </span>
+                  </span>
+                </div>
+              ))}
+              <div className="flex gap-4 mt-2">
+                <button className="text-primary-600 hover:text-primary-900 flex items-center gap-1" onClick={() => openEdit(flight)} title="Edit">
+                  <Edit className="h-4 w-4" /> Edit
+                </button>
+                <button className="text-danger-600 hover:text-danger-900 flex items-center gap-1" onClick={() => openDelete(flight)} title="Delete">
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
               </div>
-            ))}
-            <div className="flex gap-4 mt-2">
-              <button className="text-primary-600 hover:text-primary-900 flex items-center gap-1" onClick={() => openEdit(flight)} title="Edit">
-                <Edit className="h-4 w-4" /> Edit
-              </button>
-              <button className="text-danger-600 hover:text-danger-900 flex items-center gap-1" onClick={() => openDelete(flight)} title="Delete">
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
             </div>
-          </div>
           ))
         )}
       </div>
       {/* Modal for Add/Edit Flight */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
-            <button className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-3xl font-bold" onClick={() => { setShowModal(false); setEditId(null); }}>&times;</button>
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => { setShowModal(false); setEditId(null); }}>&times;</button>
             <h2 className="text-xl font-bold mb-4">{editId ? 'Edit Flight Entry' : 'Add New Flight Entry'}</h2>
             {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -459,28 +433,28 @@ const FlightLog = () => {
                 ) : col.key === 'MISSION DATE' ? (
                   <div key={col.key} className="flex flex-col">
                     <label className="text-sm font-medium text-gray-700 mb-1">{col.label}{col.required && '*'}</label>
-                      <input
-                        type="date"
-                        name={col.key}
-                        value={form[col.key]}
-                        onChange={handleChange}
+                    <input
+                      type="date"
+                      name={col.key}
+                      value={form[col.key]}
+                      onChange={handleChange}
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       required={col.required}
-                      />
-                    </div>
+                    />
+                  </div>
                 ) : (col.key === 'TAKE-OFF TIME' || col.key === 'LANDING TIME') ? (
                   <div key={col.key} className="flex flex-col">
                     <label className="text-sm font-medium text-gray-700 mb-1">{col.label}{col.required && '*'}</label>
-                      <input
-                        type="time"
-                        name={col.key}
-                        value={form[col.key]}
-                        onChange={handleChange}
+                    <input
+                      type="time"
+                      name={col.key}
+                      value={form[col.key]}
+                      onChange={handleChange}
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        step="1"
+                      step="1"
                       required={col.required}
-                      />
-                    </div>
+                    />
+                  </div>
                 ) : (
                   <div key={col.key} className="flex flex-col">
                     <label className="text-sm font-medium text-gray-700 mb-1">{col.label}{col.required && '*'}</label>
