@@ -14,6 +14,9 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // You can add more config here if needed
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Health check endpoint
